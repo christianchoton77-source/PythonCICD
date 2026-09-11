@@ -1,0 +1,51 @@
+services:
+  products-db:
+    image: postgres:17-alpine
+    container_name: orderflow-products-db
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PRODUCTS_DB}   
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - products_data:/var/lib/postgresql/data
+    
+    networks:
+      - orderflow-net
+  
+  # products-service:
+  #   build:
+  #     context: ./products_service
+  #     dockerfile: Dockerfile
+
+  #   environment:
+  #     APP_NAME: Products Service
+  #     APP_VERSION: 1.0.0
+      
+  #     DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@products-db:5432/${PRODUCTS_DB} 
+
+  #   ports:
+  #     - "8002:8000"
+    
+  #   depends_on:
+  #     products-db:
+  #       condition: service_healthy
+    
+  #   command:
+  #     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    
+  #   networks:
+  #     - orderflow-net
+
+volumes:
+  products_data:
+    name: orderflow-products-data
+
+networks:
+  orderflow-net:
+    name: orderflow-net
+    driver: bridge

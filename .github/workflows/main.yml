@@ -21,7 +21,7 @@ permissions:
 env:
 
   AWS_REGION:
-    us-east-2
+    us-east-1
 
   ECR_REPOSITORY:
     orderflow-products

@@ -10,10 +10,34 @@ on:
     branches:
       - main
 
+permissions:
 
+  id-token:
+    write
+
+  contents:
+    read
+
+env:
+
+  AWS_REGION:
+    us-east-2
+
+  ECR_REPOSITORY:
+    orderflow-products
+
+  ECS_CLUSTER:
+    orderflow-cluster
+
+  ECS_SERVICE:
+    orderflow-products-service
+
+  CONTAINER_NAME:
+    products-api
+    
 jobs:
 
-  test:
+  test-and-deploy:
 
     runs-on: ubuntu-latest
 
@@ -40,3 +64,94 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest
+
+      - name: Configure AWS credentials
+
+        uses:
+          aws-actions/configure-aws-credentials@v6
+
+        with:
+
+          role-to-assume:
+            ${{ secrets.AWS_ROLE_ARN }}
+
+          aws-region:
+            ${{ env.AWS_REGION }}
+
+
+      - name: Login to Amazon ECR
+
+        id:
+          login-ecr
+
+        uses:
+          aws-actions/amazon-ecr-login@v2
+
+
+      - name: Build and push image
+
+        id:
+          build-image
+
+        env:
+
+          REGISTRY:
+            ${{ steps.login-ecr.outputs.registry }}
+
+          IMAGE_TAG:
+            ${{ github.sha }}
+
+        run: |
+
+          IMAGE=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          docker build \
+            -t $IMAGE \
+            .
+
+          docker push \
+            $IMAGE
+
+          echo \
+            "image=$IMAGE" \
+            >> $GITHUB_OUTPUT
+
+
+      - name: Render ECS task definition
+
+        id:
+          task-definition
+
+        uses:
+          aws-actions/amazon-ecs-render-task-definition@v1
+
+        with:
+
+          task-definition:
+            ecs-task-definition.json
+
+          container-name:
+            ${{ env.CONTAINER_NAME }}
+
+          image:
+            ${{ steps.build-image.outputs.image }}
+
+
+      - name: Deploy to Amazon ECS
+
+        uses:
+          aws-actions/amazon-ecs-deploy-task-definition@v2
+
+        with:
+
+          task-definition:
+            ${{ steps.task-definition.outputs.task-definition }}
+
+          service:
+            ${{ env.ECS_SERVICE }}
+
+          cluster:
+            ${{ env.ECS_CLUSTER }}
+
+          wait-for-service-stability:
+            true
